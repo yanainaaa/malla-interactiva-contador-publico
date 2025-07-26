@@ -1,0 +1,192 @@
+<!DOCTYPE html><html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Malla Contador Público</title>
+  <style>
+    body {
+      font-family: "Times New Roman", serif;
+      background-color: #ffe4ec;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      padding: 1rem;
+    }
+    .row {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    .semester {
+      border: 2px solid #c71585;
+      border-radius: 10px;
+      background: white;
+      width: 180px;
+      padding: 0.5rem;
+    }
+    .semester h3 {
+      text-align: center;
+      margin-bottom: 0.5rem;
+    }
+    .subtitle {
+      font-weight: bold;
+      margin-top: 0.5rem;
+      text-decoration: underline;
+    }
+    .subject {
+      margin: 0.3rem 0;
+      cursor: pointer;
+    }
+    .subject.completed {
+      text-decoration: line-through;
+      color: gray;
+    }
+    #credit-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 300px;
+      background-color: #fff0f5;
+      border-left: 2px solid #c71585;
+      height: 100vh;
+      padding: 1rem;
+      transform: translateX(0);
+      transition: transform 0.3s ease;
+    }
+    #credit-panel.closed {
+      transform: translateX(100%);
+    }
+    #toggle-panel {
+      position: fixed;
+      top: 50%;
+      right: 300px;
+      background: #c71585;
+      color: white;
+      border: none;
+      border-radius: 0 5px 5px 0;
+      padding: 0.5rem;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="row" id="semesters-top"></div>
+    <div class="row" id="semesters-bottom"></div>
+  </div>  <div id="credit-panel">
+    <h3>Créditos acumulados</h3>
+    <div id="credits"></div>
+  </div>
+  <button id="toggle-panel">←</button>  <script>
+    const CREDITS_REQUIRED = {
+      "ECONOMÍA": 30,
+      "MÉTODOS CUANTITATIVOS": 40,
+      "CONTABILIDAD E IMPUESTOS": 130,
+      "CIENCIAS SOCIALES Y HUMANÍSTICAS": 10,
+      "JURÍDICA": 40,
+      "ACTIVIDADES INTEGRADORAS": 20,
+      "ADMINISTRACIÓN": 50,
+    };
+
+    const allSubjects = JSON.parse(localStorage.getItem('subjects')) || {};
+
+    const semestersTop = document.getElementById("semesters-top");
+    const semestersBottom = document.getElementById("semesters-bottom");
+
+    const subjectsData = {}; // Aquí se cargará el contenido desde archivo externo JS
+
+    function updateCredits() {
+      const credits = {};
+      Object.values(allSubjects).forEach(sub => {
+        if (sub.completed) {
+          credits[sub.area] = (credits[sub.area] || 0) + sub.creditos;
+        }
+      });
+      let html = "<ul>";
+      let total = 0;
+      for (const area in CREDITS_REQUIRED) {
+        const val = credits[area] || 0;
+        html += `<li><strong>${area}</strong>: ${val}/${CREDITS_REQUIRED[area]}</li>`;
+        total += val;
+      }
+      html += `<li><strong>Total:</strong> ${total}/360</li></ul>`;
+      document.getElementById("credits").innerHTML = html;
+    }
+
+    function createSemester(num, subjectsObl, subjectsOpc) {
+      const el = document.createElement("div");
+      el.classList.add("semester");
+      const title = document.createElement("h3");
+      title.textContent = `Semestre ${num}`;
+      el.appendChild(title);
+
+      if (subjectsObl.length > 0) {
+        const subObl = document.createElement("div");
+        subObl.classList.add("subtitle");
+        subObl.textContent = "Obligatorias";
+        el.appendChild(subObl);
+        subjectsObl.forEach(sub => el.appendChild(createSubject(sub)));
+      }
+      if (subjectsOpc.length > 0) {
+        const subOpc = document.createElement("div");
+        subOpc.classList.add("subtitle");
+        subOpc.textContent = "Opcionales";
+        el.appendChild(subOpc);
+        subjectsOpc.forEach(sub => el.appendChild(createSubject(sub)));
+      }
+      return el;
+    }
+
+    function createSubject(subject) {
+      const el = document.createElement("div");
+      el.classList.add("subject");
+      if (subject.id in allSubjects && allSubjects[subject.id].completed) {
+        el.classList.add("completed");
+      }
+      el.textContent = `${subject.nombre} (${subject.creditos}) - ${subject.area}`;
+      el.addEventListener("click", () => {
+        const current = allSubjects[subject.id]?.completed;
+        allSubjects[subject.id] = subject;
+        allSubjects[subject.id].completed = !current;
+        localStorage.setItem("subjects", JSON.stringify(allSubjects));
+        el.classList.toggle("completed");
+        updateCredits();
+      });
+      return el;
+    }
+
+    function init() {
+      for (let i = 1; i <= 8; i++) {
+        const obligatorias = subjectsData.obligatorias.filter(m => m.semestre === i);
+        const opcionales = subjectsData.opcionales.filter(m => m.semestre === i);
+        const box = createSemester(i, obligatorias, opcionales);
+        if (i <= 4) {
+          semestersTop.appendChild(box);
+        } else {
+          semestersBottom.appendChild(box);
+        }
+      }
+      updateCredits();
+    }
+
+    // Toggle Panel
+    const panel = document.getElementById("credit-panel");
+    const toggleBtn = document.getElementById("toggle-panel");
+    toggleBtn.addEventListener("click", () => {
+      panel.classList.toggle("closed");
+      toggleBtn.textContent = panel.classList.contains("closed") ? "→" : "←";
+    });
+
+    window.onload = () => {
+      fetch("subjects.js")
+        .then(res => res.json())
+        .then(data => {
+          Object.assign(subjectsData, data);
+          init();
+        });
+    };
+  </script></body>
+</html>
